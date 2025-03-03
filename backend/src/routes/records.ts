@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { AuthUser } from '../utils/authUser';
 import { prisma } from '..';
+import { Prisma } from '@prisma/client';
 
 const router = express.Router()
 
@@ -89,6 +90,62 @@ router.delete('/:zone/:name/:type/:direction', async (req, res) => {
 
     res.json({
         data: record
+    });
+});
+
+router.post('/batch', async (req, res) => {
+    const user = await AuthUser(req.headers.authorization);
+    if(!user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    const { update, delete: deletes } = req.body;
+
+    const updateRecords: Prisma.RecordUpsertArgs[] = (update || []).map((record: any) => ({
+        where: {
+            zoneDomain_name_type_direction: {
+                zoneDomain: record.zoneDomain,
+                name: record.name,
+                type: record.type,
+                direction: record.direction
+            }
+        },
+        create: {
+            zone: {
+                connect: {
+                    domain: record.zoneDomain
+                }
+            },
+            type: record.type as any,
+            name: record.name,
+            content: record.content,
+            ttl: record.ttl,
+            priority: record.priority
+        },
+        update: {
+            content: record.content,
+            ttl: record.ttl,
+            priority: record.priority
+        }
+    } satisfies Prisma.RecordUpsertArgs));
+
+    const deleteRecords: Prisma.RecordWhereUniqueInput[] = (deletes || []).map((record: any) => ({
+        zoneDomain_name_type_direction: {
+            zoneDomain: record.zoneDomain,
+            name: record.name,
+            type: record.type,
+            direction: record.direction
+        }
+    } satisfies Prisma.RecordWhereUniqueInput));
+
+    const records = await prisma.$transaction([
+        ...updateRecords.map(record => prisma.record.upsert(record)),
+        ...deleteRecords.map(record => prisma.record.delete({ where: record }))
+    ]);
+
+    res.json({
+        data: records
     });
 });
 

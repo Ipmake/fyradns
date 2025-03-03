@@ -52,6 +52,7 @@ function Zones() {
       sx={{
         display: "flex",
         flexDirection: "column",
+        height: "100%",
       }}
     >
       <Box
@@ -83,6 +84,22 @@ function Zones() {
               onClick={() => {
                 const selectedItems = selected as string[];
                 if (!selectedItems || selectedItems.length === 0) return;
+
+                axios
+                  .post(
+                    `${getBackendURL()}/api/zones/batch`,
+                    {
+                      delete: selectedItems,
+                    },
+                    {
+                      headers: {
+                        Authorization: localStorage.getItem("token"),
+                      },
+                    }
+                  )
+                  .then(() => {
+                    fetchData();
+                  });
               }}
               color="error"
             >
@@ -149,7 +166,8 @@ function Zones() {
             resizable: false,
           },
           {
-            field: "ttl",
+            field: "actions",
+            type: "actions",
             headerName: "",
             headerAlign: "right",
             width: 110,

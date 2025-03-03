@@ -1,12 +1,13 @@
 import express, { Request, Response } from 'express';
 import { AuthUser } from '../utils/authUser';
 import { prisma } from '..';
+import { Prisma } from '@prisma/client';
 
 const router = express.Router()
 
 router.get('/', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
-    if(!user) {
+    if (!user) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
     }
@@ -20,7 +21,7 @@ router.get('/', async (req, res) => {
 
 router.get('/:domain', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
-    if(!user) {
+    if (!user) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
     }
@@ -31,7 +32,7 @@ router.get('/:domain', async (req, res) => {
         }
     });
 
-    if(!zone) {
+    if (!zone) {
         res.status(404).json({ error: 'Zone not found' });
         return;
     }
@@ -43,7 +44,7 @@ router.get('/:domain', async (req, res) => {
 
 router.post('/', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
-    if(!user) {
+    if (!user) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
     }
@@ -53,9 +54,9 @@ router.post('/', async (req, res) => {
     // Validate required fields
     if (!domain) {
         res.status(400).json({ error: 'Domain is required' });
-        return 
+        return
     }
-    
+
     // Validate domain format
     const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
     if (!domainRegex.test(domain) || domain.length > 253) {
@@ -90,7 +91,7 @@ router.post('/', async (req, res) => {
 
 router.delete('/:domain', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
-    if(!user) {
+    if (!user) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
     }
@@ -108,5 +109,38 @@ router.delete('/:domain', async (req, res) => {
         data: zone
     });
 })
+
+router.post('/batch', async (req, res) => {
+    const user = await AuthUser(req.headers.authorization);
+    if (!user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    const { update, delete: deleteZones } = req.body;
+
+    const updateZones: Prisma.ZoneUpsertArgs[] = (update || []).map((zone: any) => ({
+        create: zone,
+        update: zone,
+        where: {
+            domain: zone.domain
+        }
+    } satisfies Prisma.ZoneUpsertArgs));
+
+    const deleteZoneDomains: string[] = (deleteZones || []).map((zone: any) => zone);
+
+    const zones = await prisma.$transaction([
+        ...updateZones.map(zone => prisma.zone.upsert(zone)),
+        ...deleteZoneDomains.map(domain => prisma.zone.delete({
+            where: {
+                domain
+            }
+        }))
+    ]);
+
+    res.json({
+        data: zones
+    });
+});
 
 export default router;

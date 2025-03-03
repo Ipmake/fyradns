@@ -66,7 +66,10 @@ function ZoneDrawer() {
           },
         })
         .then((res) => {
-          setData(res.data.data);
+          setData({
+            ...res.data.data,
+            serial: Math.floor(Math.random() * 1000000),
+          });
           setLoading(false);
         })
         .catch(() => {
