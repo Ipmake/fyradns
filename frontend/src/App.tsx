@@ -1,0 +1,98 @@
+import { Box, CircularProgress } from "@mui/material";
+import useAuthStore from "./states/AuthState";
+import { useEffect, useState } from "react";
+import Login from "./pages/Login";
+import axios from "axios";
+import getBackendURL from "./util/getBackend";
+import Sidebar from "./components/Sidebar";
+import { Route, Routes } from "react-router-dom";
+import Appbar from "./components/Appbar";
+import Zones from "./pages/Zones";
+import ZoneDrawer from "./components/Drawer/Zone";
+
+function App() {
+  const { user } = useAuthStore();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return setLoading(false);
+
+    axios
+      .get(`${getBackendURL()}/api/auth/me`, {
+        headers: {
+          Authorization: localStorage.getItem("token"),
+        },
+      })
+      .then((res) => {
+        if (res.status === 200) useAuthStore.getState().setUser(res.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        useAuthStore.getState().logout();
+        localStorage.removeItem("token");
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading)
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100%",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+
+  if (!user) {
+    return <Login />;
+  }
+
+  return <ManageLayout />;
+}
+export default App;
+
+function ManageLayout() {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+      }}
+    >
+      <ZoneDrawer />
+      
+      <Appbar />
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "row",
+          height: "100%",
+          width: "100%",
+        }}
+      >
+        <Sidebar />
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            width: "calc(100vw - 250px)",
+            height: "100%",
+            overflow: "auto",
+            ml: "250px",
+          }}
+        >
+          <Routes>
+            <Route path="/" element={<h1>Dashboard</h1>} />
+            <Route path="/zones" element={<Zones />} />
+          </Routes>
+        </Box>
+      </Box>
+    </Box>
+  );
+}

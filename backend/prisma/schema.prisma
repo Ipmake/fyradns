@@ -1,0 +1,78 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../data/fyradns.db"
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  username String  @unique
+  email    String? @unique
+  password String?
+  name     String
+  token    String  @unique
+  isApi    Boolean @default(false)
+}
+
+model Zone {
+  domain      String  @id @unique
+  description String?
+  ttl         Int     @default(3600)
+  refresh     Int     @default(86400)
+  retry       Int     @default(7200)
+  expire      Int     @default(3600000)
+  minimum     Int     @default(172800)
+  serial      Int     @default(1)
+  enabled     Boolean @default(true)
+
+  records Record[]
+}
+
+enum RecordDirectionType {
+  FORWARD
+  REVERSE
+}
+
+enum RecordType {
+  A
+  AAAA
+  CNAME
+  MX
+  NS
+  PTR
+  SOA
+  SPF
+  SRV
+  TXT
+}
+
+model Record {
+  zoneDomain String
+  direction  RecordDirectionType @default(FORWARD)
+  name       String
+  type       String              @default("A")
+  content    String
+  ttl        Int                 @default(3600)
+  priority   Int?                @default(0)
+  changeDate DateTime            @default(now())
+  enabled    Boolean             @default(true)
+
+  zone Zone @relation(fields: [zoneDomain], references: [domain])
+
+  @@id([zoneDomain, name, type, direction])
+  @@unique([zoneDomain, name, type, direction])
+}
+
+model Config {
+  key   String @id @unique
+  value String
+}
