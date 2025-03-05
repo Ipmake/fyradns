@@ -2,6 +2,7 @@ import { startServer } from './server';
 import app from './app';
 import { PrismaClient } from '@prisma/client';
 import init from './init';
+import { startDNSServer } from './dns';
 
 const WEBPORT = process.env.WEBPORT || 40222;
 const DNSPORT = process.env.DNSPORT || 53;
@@ -15,6 +16,10 @@ const prisma = new PrismaClient();
 })();
 
 startServer(WEBPORT).catch(() => {
+    process.exit(1);
+});
+
+startDNSServer(DNSPORT).catch(() => {
     process.exit(1);
 });
 

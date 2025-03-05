@@ -78,19 +78,6 @@ createRoot(document.getElementById("root")!).render(
                   borderWidth: '1px',
                 },
               },
-              '& .MuiInputLabel-root': {
-                fontSize: '0.875rem',
-              },
-            },
-          },
-        },
-        MuiInputLabel: {
-          styleOverrides: {
-            outlined: {
-              transform: 'translate(14px, 14px) scale(1)',
-              '&.MuiInputLabel-shrink': {
-                transform: 'translate(14px, -9px) scale(0.75)',
-              },
             },
           },
         },
@@ -115,9 +102,6 @@ createRoot(document.getElementById("root")!).render(
               '&.Mui-focused': {
                 boxShadow: '0 0 0 2px rgba(21, 96, 189, 0.2)',
               },
-            },
-            input: {
-              padding: '8px 4px',
             },
           },
         },

@@ -46,12 +46,12 @@ enum RecordType {
   NS
   PTR
   SOA
-  SPF
   SRV
   TXT
 }
 
 model Record {
+  id         Int                 @id @default(autoincrement())
   zoneDomain String
   name       String
   type       String              @default("A")
@@ -61,9 +61,12 @@ model Record {
   changeDate DateTime            @default(now())
   enabled    Boolean             @default(true)
 
-  zone Zone @relation(fields: [zoneDomain], references: [domain])
+  zone Zone @relation(fields: [zoneDomain], references: [domain], onDelete: Cascade, onUpdate: NoAction)
 
-  @@id([zoneDomain, name, type])
+  @@index([zoneDomain])
+  @@index([zoneDomain, name])
+  @@index([zoneDomain, name, type])
+
   @@unique([zoneDomain, name, type])
 }
 

@@ -43,6 +43,24 @@ router.get('/:domain', async (req, res) => {
     });
 });
 
+router.get('/:zone/records', async (req, res) => {
+    const user = await AuthUser(req.headers.authorization);
+    if (!user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    const records = await prisma.record.findMany({
+        where: {
+            zoneDomain: req.params.zone
+        }
+    });
+
+    res.json({
+        data: records
+    });
+});
+
 const ZoneCreateSchema = Joi.object({
     domain: Joi.string()
         .required()
@@ -50,7 +68,7 @@ const ZoneCreateSchema = Joi.object({
         .max(253)
         .pattern(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i, { name: 'domain format' }),
     ttl: Joi.number().optional(),
-    description: Joi.string().optional(),
+    description: Joi.string().optional().allow(''),
     enabled: Joi.boolean().optional(),
     refresh: Joi.number().optional(),
     retry: Joi.number().optional(),
@@ -187,7 +205,7 @@ router.post('/batch', async (req, res) => {
 
     const zones = await prisma.$transaction([
         ...updateZones.map(zone => prisma.zone.upsert(zone)),
-        ...deleteZoneDomains.map(domain => prisma.zone.delete({
+        ...deleteZoneDomains.map(domain => prisma.zone.deleteMany({
             where: {
                 domain
             }

@@ -4,6 +4,7 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import getBackendURL from "../util/getBackend";
 import { useZoneDrawer } from "../components/Drawer/Zone";
+import { Link } from "react-router-dom";
 
 function Zones() {
   const [loading, setLoading] = useState(true);
@@ -149,6 +150,14 @@ function Zones() {
             flex: 1,
             editable: false,
             resizable: false,
+            renderCell: (params) => (
+              <Link 
+                to={`/records/${params.value}`}
+                style={{ color: 'inherit', textDecoration: 'none', fontWeight: 'bold' }}
+              >
+                {params.value}
+              </Link>
+            )
           },
           {
             field: "description",

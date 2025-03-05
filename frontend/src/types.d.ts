@@ -27,21 +27,26 @@ declare namespace Types {
         records: Record[]
     }
 
-    type RECORD_TYPE = 'A' | 'AAAA' | 'CNAME' | 'MX'  | 'NS' | 'PTR' | 'SOA' | 'SPF' | 'SRV' | 'TXT'
+    type RECORD_TYPE = 'A' | 'AAAA' | 'CNAME' | 'MX' | 'NS' | 'PTR' | 'SOA' | 'SRV' | 'TXT'
 
     interface Record {
+        id: number
         zoneDomain: string
         name: string
         type: RECORD_TYPE
         content: string
         ttl: number
         priority?: number
-        changeDate: Date
+        changeDate?: Date
         enabled: boolean
     }
 
     interface RecordWithZone extends Record {
         zone: Zone
+    }
+
+    interface RecordCreate extends Record {
+        id?: number
     }
 }
 

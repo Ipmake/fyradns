@@ -9,6 +9,8 @@ import { Route, Routes } from "react-router-dom";
 import Appbar from "./components/Appbar";
 import Zones from "./pages/Zones";
 import ZoneDrawer from "./components/Drawer/Zone";
+import Records from "./pages/Records";
+import ResolverPage from "./pages/Config/Resolver";
 
 function App() {
   const { user } = useAuthStore();
@@ -90,6 +92,9 @@ function ManageLayout() {
           <Routes>
             <Route path="/" element={<h1>Dashboard</h1>} />
             <Route path="/zones" element={<Zones />} />
+            <Route path="/records/:zoneName" element={<Records />} />
+
+            <Route path="/config/resolver" element={<ResolverPage />} />
           </Routes>
         </Box>
       </Box>
