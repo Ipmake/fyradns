@@ -228,7 +228,7 @@ const ResolverPage: React.FC = () => {
                                     <Button 
                                             variant="contained" 
                                             onClick={handleForwarderServers}
-                                            disabled={!config.useForwarder || config.loading['forwarderServers'] || (config.forwarderServer1 && !validateAContent(config.forwarderServer1)) || (config.forwarderServer2 && !validateAContent(config.forwarderServer2))}
+                                            disabled={Boolean(!config.useForwarder || config.loading['forwarderServers'] || (config.forwarderServer1 && !validateAContent(config.forwarderServer1)) || (config.forwarderServer2 && !validateAContent(config.forwarderServer2)))}
                                             sx={{ height: 56 }}
                                     >
                                             {config.loading['forwarderServers'] ? <CircularProgress size={24} /> : "Save"}
