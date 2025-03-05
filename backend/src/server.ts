@@ -12,12 +12,19 @@ export async function startServer(port: number | string) {
         // Ensure routes directory exists
         await fs.mkdir(routesDir, { recursive: true }).catch(() => {});
         
+        // Enable CORS for all requests
+        app.use((req, res, next) => {
+            res.header('Access-Control-Allow-Origin', '*');
+            res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+            next();
+        });
+
         // Register API routes
         const { registerRoutes } = await import('./utils/routeLoader.js');
         await registerRoutes(app, routesDir, '/api');
         
         app.use(express.static(wwwDir));
-        
+               
         // For any other requests, send index.html for SPA routing
         app.get('*', (req, res, next) => {
             if (req.path.startsWith('/api/')) return next();
