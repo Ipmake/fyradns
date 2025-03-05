@@ -37,10 +37,6 @@ model Zone {
   records Record[]
 }
 
-enum RecordDirectionType {
-  FORWARD
-  REVERSE
-}
 
 enum RecordType {
   A
@@ -57,7 +53,6 @@ enum RecordType {
 
 model Record {
   zoneDomain String
-  direction  RecordDirectionType @default(FORWARD)
   name       String
   type       String              @default("A")
   content    String
@@ -68,8 +63,8 @@ model Record {
 
   zone Zone @relation(fields: [zoneDomain], references: [domain])
 
-  @@id([zoneDomain, name, type, direction])
-  @@unique([zoneDomain, name, type, direction])
+  @@id([zoneDomain, name, type])
+  @@unique([zoneDomain, name, type])
 }
 
 model Config {

@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { AuthUser } from '../utils/authUser';
 import { prisma } from '..';
 import { Prisma } from '@prisma/client';
+import Joi from 'joi';
 
 const router = express.Router()
 
@@ -42,6 +43,22 @@ router.get('/:domain', async (req, res) => {
     });
 });
 
+const ZoneCreateSchema = Joi.object({
+    domain: Joi.string()
+        .required()
+        .min(1)
+        .max(253)
+        .pattern(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i, { name: 'domain format' }),
+    ttl: Joi.number().optional(),
+    description: Joi.string().optional(),
+    enabled: Joi.boolean().optional(),
+    refresh: Joi.number().optional(),
+    retry: Joi.number().optional(),
+    expire: Joi.number().optional(),
+    minimum: Joi.number().optional(),
+    serial: Joi.number().optional()
+});
+
 router.post('/', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
     if (!user) {
@@ -49,7 +66,13 @@ router.post('/', async (req, res) => {
         return;
     }
 
-    const { domain, records, ttl, description, enabled, refresh, retry, expire, minimum, serial } = req.body;
+    const { error, value } = ZoneCreateSchema.validate(req.body);
+    if (error) {
+        res.status(400).json({ error: error.message });
+        return;
+    }
+
+    const { domain, ttl, description, enabled, refresh, retry, expire, minimum, serial } = value;
 
     // Validate required fields
     if (!domain) {
@@ -110,6 +133,33 @@ router.delete('/:domain', async (req, res) => {
     });
 })
 
+const BatchZonesSchema = Joi.object({
+    update: Joi.array().items(
+        Joi.object({
+            domain: Joi.string()
+                .required()
+                .min(1)
+                .max(253)
+                .pattern(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i, { name: 'domain format' }),
+            ttl: Joi.number().optional(),
+            description: Joi.string().optional(),
+            enabled: Joi.boolean().optional(),
+            refresh: Joi.number().optional(),
+            retry: Joi.number().optional(),
+            expire: Joi.number().optional(),
+            minimum: Joi.number().optional(),
+            serial: Joi.number().optional()
+        })
+    ).optional().default([]),
+    
+    delete: Joi.array().items(
+        Joi.string()
+            .min(1)
+            .max(253)
+            .pattern(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i, { name: 'domain format' })
+    ).optional().default([])
+});
+
 router.post('/batch', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
     if (!user) {
@@ -117,7 +167,13 @@ router.post('/batch', async (req, res) => {
         return;
     }
 
-    const { update, delete: deleteZones } = req.body;
+    const { error, value } = BatchZonesSchema.validate(req.body);
+    if (error) {
+        res.status(400).json({ error: error.message });
+        return;
+    }
+
+    const { update, delete: deleteZones } = value;
 
     const updateZones: Prisma.ZoneUpsertArgs[] = (update || []).map((zone: any) => ({
         create: zone,

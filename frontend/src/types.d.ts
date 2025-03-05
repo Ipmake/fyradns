@@ -27,13 +27,10 @@ declare namespace Types {
         records: Record[]
     }
 
-    type RecordDirectionType = 'FORWARD' | 'REVERSE'
-
     type RECORD_TYPE = 'A' | 'AAAA' | 'CNAME' | 'MX'  | 'NS' | 'PTR' | 'SOA' | 'SPF' | 'SRV' | 'TXT'
 
     interface Record {
         zoneDomain: string
-        direction: FORWARD | REVERSE
         name: string
         type: RECORD_TYPE
         content: string

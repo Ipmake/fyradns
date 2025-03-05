@@ -15,11 +15,11 @@ export default async function init() {
     await prisma.config.createMany({
         data: [
             {
-                key: 'useRecursive',
+                key: 'useForwarder',
                 value: 'true'
             },
             {
-                key: 'recursiveServers',
+                key: 'forwarderServers',
                 value: '1.1.1.1,8.8.8.8'
             }
         ]
