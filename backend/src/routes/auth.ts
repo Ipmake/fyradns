@@ -19,7 +19,9 @@ router.get('/me', async (req, res) => {
         name: user.name,
         email: user.email,
         token: user.token,
-        isApi: user.isApi
+        isApi: user.isApi,
+        isAdmin: user.isAdmin,
+        enabled: user.enabled
     });
 });
 
@@ -47,13 +49,20 @@ router.post('/login', async (req: Request, res: Response) => {
         return;
     }
 
+    if(!user.enabled) {
+        res.status(403).json({ error: 'User account is disabled' });
+        return;
+    }
+
     res.json({
         id: user.id,
         username: user.username,
         name: user.name,
         email: user.email,
         token: user.token,
-        isApi: user.isApi
+        isApi: user.isApi,
+        isAdmin: user.isAdmin,
+        enabled: user.enabled
     });
 });
 

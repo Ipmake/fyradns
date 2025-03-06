@@ -8,7 +8,8 @@ export async function AuthUser(token?: string) {
 
     const user = await prisma.user.findUnique({
         where: {
-            token: token
+            token: token,
+            enabled: true
         }
     });
 

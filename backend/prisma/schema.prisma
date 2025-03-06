@@ -22,6 +22,8 @@ model User {
   name     String
   token    String  @unique
   isApi    Boolean @default(false)
+  isAdmin  Boolean @default(false)
+  enabled  Boolean @default(true)
 }
 
 model Zone {
