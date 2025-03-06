@@ -1,6 +1,10 @@
 import fs from 'fs';
+import { promisify } from 'util';
 import path from 'path';
 import { createWriteStream, WriteStream, promises as fsPromises } from 'fs';
+import { exec as execCallback } from 'child_process';
+
+const exec = promisify(execCallback);
 
 // Define log levels
 enum LogLevel {
@@ -60,7 +64,7 @@ class DnsLogWorker {
         this.logDir = logDir;
         this.currentLogFile = path.join(this.logDir, `${new Date().toISOString().split('T')[0]}.log`);
 
-        if(!fs.existsSync(this.logDir)) fs.mkdirSync(this.logDir, { recursive: true });
+        if (!fs.existsSync(this.logDir)) fs.mkdirSync(this.logDir, { recursive: true });
 
         // read the log dir and delete old log files older than logRetentionDays
         const clearLogs = () => {
@@ -96,21 +100,33 @@ class DnsLogWorker {
     public async readLogEntries(date: number, limit: number = 100): Promise<DnsLogEntry[]> {
         const logFile = path.join(this.logDir, `${new Date(date).toISOString().split('T')[0]}.log`);
         if (!fs.existsSync(logFile)) return [];
-        const data = await fsPromises
-            .readFile(logFile, 'utf-8')
-            .catch(() => { return ''; });
-        if (!data) return [];
-        const lines = data.split('\n');
-        const entries: DnsLogEntry[] = [];
 
-        for (let i = lines.length - 1; i >= 0; i--) {
-            if(lines[i].trim() === "") continue;
-            if (entries.length >= limit) break;
-            const parts = lines[i].split('|');
-            entries.push(JSON.parse(parts[1]));
+        try {
+            // Use tail to get only the last lines we need (we request more lines to account for empty lines)
+            const { stdout } = await exec(`tail -n ${limit * 2} "${logFile}"`);
+            if (!stdout) return [];
+
+            const lines = stdout.split('\n');
+            const entries: DnsLogEntry[] = [];
+
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (lines[i].trim() === "") continue;
+                if (entries.length >= limit) break;
+
+                try {
+                    const parts = lines[i].split('|');
+                    entries.push(JSON.parse(parts[1]));
+                } catch (err) {
+                    // Skip invalid lines
+                    console.error('Error parsing log entry:', err);
+                }
+            }
+
+            return entries;
+        } catch (error) {
+            console.error('Error reading log file:', error);
+            return [];
         }
-;
-        return entries;
     }
 
     public async close() {
