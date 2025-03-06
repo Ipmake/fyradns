@@ -130,6 +130,70 @@ createRoot(document.getElementById("root")!).render(
             },
           },
         },
+        MuiTable: {
+          styleOverrides: {
+            root: {
+              borderCollapse: 'separate',
+              borderSpacing: '0',
+            },
+          },
+        },
+        MuiTableContainer: {
+          styleOverrides: {
+            root: {
+              borderRadius: '8px',
+              overflow: 'hidden',
+              background: 'transparent',
+            },
+          },
+        },
+        MuiTableHead: {
+          styleOverrides: {
+            root: {
+              borderBottom: '1px solid rgba(178, 186, 194, 0.15)',
+            },
+          },
+        },
+        MuiTableBody: {
+          styleOverrides: {
+            root: {
+              '& .MuiTableRow-root:last-child': {
+                '& .MuiTableCell-root': {
+                  borderBottom: 'none',
+                },
+              },
+            },
+          },
+        },
+        MuiTableRow: {
+          styleOverrides: {
+            root: {
+              transition: 'background-color 0.2s ease',
+              '&:hover': {
+                backgroundColor: 'rgba(21, 96, 189, 0.04)',
+              },
+              '&.MuiTableRow-hover:hover': {
+                backgroundColor: 'rgba(21, 96, 189, 0.08)',
+              },
+            },
+          },
+        },
+        MuiTableCell: {
+          styleOverrides: {
+            root: {
+              fontFamily: 'Inter Variable, sans-serif',
+              borderBottom: '1px solid rgba(178, 186, 194, 0.12)',
+              padding: '16px 24px',
+              fontSize: '0.875rem',
+            },
+            head: {
+              fontWeight: 600,
+              color: '#F3F6F9',
+              backgroundColor: 'rgba(16, 16, 16, 0.5)',
+              fontSize: '0.875rem',
+            },
+          },
+        }
       },
     })}
   >

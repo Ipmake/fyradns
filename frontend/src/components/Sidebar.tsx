@@ -4,6 +4,7 @@ import {
   ExpandMore,
   Home,
   ListRounded,
+  PeopleRounded,
   TableViewRounded,
 } from "@mui/icons-material";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@mui/material";
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+import useAuthStore from "../states/AuthState";
 
 function Sidebar() {
   const [isConfigOpen, setIsConfigOpen] = React.useState(
@@ -22,6 +24,7 @@ function Sidebar() {
   );
 
   const { pathname } = useLocation();
+  const { user } = useAuthStore();
 
   return (
     <Box
@@ -60,7 +63,16 @@ function Sidebar() {
           path: "/logs",
           icon: ListRounded,
         },
-                {
+        ...(user?.isAdmin
+          ? [
+              {
+                name: "Users",
+                icon: PeopleRounded,
+                path: "/users",
+              },
+            ]
+          : []),
+        {
           name: "Config",
           icon: ChevronRight,
           expandIcon: ExpandMore,
@@ -79,8 +91,9 @@ function Sidebar() {
           <Box key={item.name} sx={{ mb: 0.5 }}>
             {/* Check if any child is active */}
             {(() => {
-              const hasActiveChild = item.subItems && 
-                item.subItems.some(subItem => pathname === subItem.path);
+              const hasActiveChild =
+                item.subItems &&
+                item.subItems.some((subItem) => pathname === subItem.path);
               return (
                 <MenuItem
                   onClick={item.onToggle}

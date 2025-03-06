@@ -1,7 +1,8 @@
 export function validateRecordName(name: string) {
     // May not be empty, may not be longer than 253 characters. Must be a valid domain name.
-    if(name.length === 0 || name.length > 253) return false;
-    if(name.startsWith("*")) return true;
+    if (name.length === 0 || name.length > 253) return false;
+    if (name.startsWith("*")) return true;
+    if (name === "@") return true;
     const domainRegex = new RegExp('^(?!-)(?!.*--)[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$');
     return domainRegex.test(name);
 }
@@ -27,8 +28,10 @@ export function validateMXContent(content: string) {
 }
 
 export function validateNSContent(content: string) {
-    const nsRegex = new RegExp('^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$');
-    return nsRegex.test(content);
+    // const nsRegex = new RegExp('^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$');
+    // return nsRegex.test(content);
+
+    return content !== ""
 }
 
 export function validatePTRContent(content: string) {

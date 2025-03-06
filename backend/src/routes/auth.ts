@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { AuthUser } from '../utils/authUser';
 import { prisma } from '..';
+import Joi from 'joi';
 
 const router = express.Router();
 
@@ -23,6 +24,49 @@ router.get('/me', async (req, res) => {
         isAdmin: user.isAdmin,
         enabled: user.enabled
     });
+});
+
+const ChangePasswordSchema = Joi.object({
+    password: Joi.string().required(),
+    confirmPassword: Joi.string().required()
+});
+
+router.post('/change-password', async (req, res) => {
+    const token = req.headers.authorization;
+
+    const user = await AuthUser(token);
+    if(!user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    if(user.isApi) {
+        res.status(403).json({ error: 'API users cannot change their password' });
+        return;
+    }
+
+    const { value, error } = ChangePasswordSchema.validate(req.body);
+    if(error) {
+        res.status(400).json({ error: error.details[0].message });
+        return;
+    }
+
+    const { password, confirmPassword } = value;
+    if(password !== confirmPassword) {
+        res.status(400).json({ error: 'Passwords do not match' });
+        return;
+    }
+
+    await prisma.user.update({
+        where: {
+            id: user.id
+        },
+        data: {
+            password: password
+        }
+    });
+
+    res.json({ success: true });
 });
 
 router.post('/login', async (req: Request, res: Response) => {

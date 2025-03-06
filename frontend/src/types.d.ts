@@ -5,6 +5,13 @@ declare namespace Types {
         email?: string
         name: string
         isApi: boolean
+        isAdmin: boolean
+        enabled: boolean
+    }
+
+    interface UIUserCreate extends BaseUser {
+        password: string
+        confirmPassword: string
     }
 
     interface AuthedUser extends BaseUser {

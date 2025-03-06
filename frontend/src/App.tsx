@@ -12,6 +12,8 @@ import ZoneDrawer from "./components/Drawer/Zone";
 import Records from "./pages/Records";
 import ResolverPage from "./pages/Config/Resolver";
 import LogsPage from "./pages/Logs";
+import Users from "./pages/Users";
+import UserDrawer from "./components/Drawer/User";
 
 function App() {
   const { user } = useAuthStore();
@@ -65,10 +67,13 @@ function ManageLayout() {
       sx={{
         display: "flex",
         flexDirection: "column",
+        minHeight: "100vh",
         height: "100vh",
+        maxHeight: "100vh",
       }}
     >
       <ZoneDrawer />
+      <UserDrawer />
       
       <Appbar />
       <Box
@@ -85,8 +90,7 @@ function ManageLayout() {
             display: "flex",
             flexDirection: "column",
             width: "calc(100vw - 250px)",
-            height: "100%",
-            overflow: "auto",
+            height: "calc(100vh - 64px)",
             ml: "250px",
           }}
         >
@@ -96,6 +100,7 @@ function ManageLayout() {
             <Route path="/records/:zoneName" element={<Records />} />
 
             <Route path="/logs" element={<LogsPage />} />
+            <Route path="/users" element={<Users />} />
 
             <Route path="/config/resolver" element={<ResolverPage />} />
           </Routes>

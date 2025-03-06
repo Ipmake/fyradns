@@ -1,4 +1,13 @@
-import { Box, Button, CircularProgress, Collapse } from "@mui/material";
+import {
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Collapse,
+  Stack,
+  Toolbar,
+  Typography,
+} from "@mui/material";
 import { DataGrid, GridInputRowSelectionModel } from "@mui/x-data-grid";
 import axios from "axios";
 import { useEffect, useState } from "react";
@@ -56,26 +65,23 @@ function Zones() {
         height: "100%",
       }}
     >
-      <Box
+      <Toolbar
         sx={{
+          px: { xs: 2, md: 2 },
+          py: 2,
           display: "flex",
-          flexDirection: "row",
           justifyContent: "space-between",
-          alignItems: "center",
-          px: 2,
         }}
       >
-        <h1>Zones</h1>
-
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "row",
-            gap: "10px",
-            alignItems: "center",
-            marginRight: "20px",
-          }}
+        <Typography
+          variant="h6"
+          component="div"
+          sx={{ fontWeight: 600, color: (theme) => theme.palette.text.primary }}
         >
+          Zones
+        </Typography>
+
+        <Stack direction="row" spacing={2} alignItems="center">
           <Collapse
             orientation="horizontal"
             in={Boolean(selected && (selected as unknown as string[])?.length)}
@@ -118,14 +124,14 @@ function Zones() {
           >
             New
           </Button>
-        </Box>
-      </Box>
+        </Stack>
+      </Toolbar>
 
       <DataGrid
         checkboxSelection
         rows={data.map((zone) => ({
-            id: zone.domain,
-            ...zone
+          id: zone.domain,
+          ...zone,
         }))}
         pageSizeOptions={[100]}
         disableRowSelectionOnClick
@@ -151,13 +157,17 @@ function Zones() {
             editable: false,
             resizable: false,
             renderCell: (params) => (
-              <Link 
+              <Link
                 to={`/records/${params.value}`}
-                style={{ color: 'inherit', textDecoration: 'none', fontWeight: 'bold' }}
+                style={{
+                  color: "inherit",
+                  textDecoration: "none",
+                  fontWeight: "bold",
+                }}
               >
                 {params.value}
               </Link>
-            )
+            ),
           },
           {
             field: "description",
@@ -173,6 +183,19 @@ function Zones() {
             width: 100,
             editable: false,
             resizable: false,
+            renderCell: (params) => (
+              <Box
+                sx={{ display: "flex", alignItems: "center", height: "100%" }}
+              >
+                <Chip
+                  label={params.value ? "Enabled" : "Disabled"}
+                  size="small"
+                  color={params.value ? "success" : "default"}
+                  variant="outlined"
+                  sx={{ minWidth: 70, fontSize: "0.75rem" }}
+                />
+              </Box>
+            ),
           },
           {
             field: "actions",
@@ -188,11 +211,16 @@ function Zones() {
                 <Box
                   sx={{ display: "flex", alignItems: "center", height: "100%" }}
                 >
-                  <Button variant="text" onClick={() => {
-                    useZoneDrawer.getState().setTarget(row.row.domain as string, () => {
-                      fetchData();
-                    });
-                  }}>
+                  <Button
+                    variant="text"
+                    onClick={() => {
+                      useZoneDrawer
+                        .getState()
+                        .setTarget(row.row.domain as string, () => {
+                          fetchData();
+                        });
+                    }}
+                  >
                     Edit
                   </Button>
                 </Box>

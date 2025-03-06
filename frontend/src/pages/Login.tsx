@@ -148,6 +148,7 @@ function Login() {
             value={username}
             disabled={loading}
             onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
           />
 
           <TextField
@@ -159,6 +160,7 @@ function Login() {
             value={password}
             disabled={loading}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
           />
 
           <ButtonWithLoad
