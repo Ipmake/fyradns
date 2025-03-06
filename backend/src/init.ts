@@ -34,7 +34,9 @@ export default async function init() {
             email: null,
             password: HashPW('admin'),
             isApi: false,
-            token: crypto.randomBytes(32).toString('hex')
+            isAdmin: true,
+            token: crypto.randomBytes(32).toString('hex'),
+            enabled: true
         }
     });
     console.log("----------------------------------------");
