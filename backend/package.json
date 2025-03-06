@@ -3,7 +3,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "rm -rf dist && npx tsc && node dist/index.js",
-    "start": "npx prisma db push && node dist/index.js"
+    "start": "./run.sh"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
