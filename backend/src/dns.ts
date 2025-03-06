@@ -1,7 +1,8 @@
 import dns2 from 'dns2';
-import { prisma } from '.';
+import { logger, prisma } from '.';
 import { MxRecord, resolveCaa, Resolver, SoaRecord, SrvRecord } from 'node:dns';
 import { $Enums } from '@prisma/client';
+import { logLevelStrings } from './workers/logworker';
 
 interface ExtendedDnsQuestion extends dns2.DnsQuestion {
     type: number;
@@ -105,7 +106,23 @@ export async function startDNSServer(port: number | string) {
 
                 // Skip if no question
                 if (!question) {
-                    response.header.rcode = 2;
+                    response.header.rcode = 1;
+                    logger.writeLogEntry({
+                        timestamp: new Date(),
+                        level: 1,
+                        query: {
+                            name: '',
+                            type: '',
+                            class: ''
+                        },
+                        response: {
+                            code: 'FORMERR'
+                        },
+                        client: {
+                            ip: _rinfo.address,
+                            port: _rinfo.port
+                        }
+                    })
                     return send(response);
                 }
 
@@ -356,6 +373,23 @@ export async function startDNSServer(port: number | string) {
                     console.error('Failed to process request:', err);
                     response.header.rcode = 2;
                 }
+
+                logger.writeLogEntry({
+                    timestamp: new Date(),
+                    level: response.header.rcode,
+                    query: {
+                        name: question.name,
+                        type: typeMap[question.type] || 'A',
+                        class: question.class === 1 ? 'IN' : 'UNKNOWN'
+                    },
+                    response: {
+                        code: !isNaN(response.header.rcode) ? logLevelStrings[response.header.rcode] : 'SERVFAIL'
+                    },
+                    client: {
+                        ip: _rinfo.address,
+                        port: _rinfo.port
+                    }
+                });
 
                 send(response);
             }

@@ -5,7 +5,8 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "library"
 }
 
 datasource db {
@@ -37,7 +38,6 @@ model Zone {
   records Record[]
 }
 
-
 enum RecordType {
   A
   AAAA
@@ -51,23 +51,22 @@ enum RecordType {
 }
 
 model Record {
-  id         Int                 @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   zoneDomain String
   name       String
-  type       String              @default("A")
+  type       String   @default("A")
   content    String
-  ttl        Int                 @default(3600)
-  priority   Int?                @default(0)
-  changeDate DateTime            @default(now())
-  enabled    Boolean             @default(true)
+  ttl        Int      @default(3600)
+  priority   Int?     @default(0)
+  changeDate DateTime @default(now())
+  enabled    Boolean  @default(true)
 
   zone Zone @relation(fields: [zoneDomain], references: [domain], onDelete: Cascade, onUpdate: NoAction)
 
+  @@unique([zoneDomain, name, type])
   @@index([zoneDomain])
   @@index([zoneDomain, name])
   @@index([zoneDomain, name, type])
-
-  @@unique([zoneDomain, name, type])
 }
 
 model Config {

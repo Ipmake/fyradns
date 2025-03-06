@@ -11,6 +11,7 @@ import Zones from "./pages/Zones";
 import ZoneDrawer from "./components/Drawer/Zone";
 import Records from "./pages/Records";
 import ResolverPage from "./pages/Config/Resolver";
+import LogsPage from "./pages/Logs";
 
 function App() {
   const { user } = useAuthStore();
@@ -93,6 +94,8 @@ function ManageLayout() {
             <Route path="/" element={<h1>Dashboard</h1>} />
             <Route path="/zones" element={<Zones />} />
             <Route path="/records/:zoneName" element={<Records />} />
+
+            <Route path="/logs" element={<LogsPage />} />
 
             <Route path="/config/resolver" element={<ResolverPage />} />
           </Routes>
