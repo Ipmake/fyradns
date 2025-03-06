@@ -15,6 +15,6 @@ EXPOSE 53
 EXPOSE 40222
 VOLUME /app/data
 
-COPY frontend/build/ /app/www/
+COPY frontend/dist/ /app/www/
 
 CMD ["node", "dist/index.js"]
