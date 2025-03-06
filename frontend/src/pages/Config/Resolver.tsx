@@ -98,6 +98,11 @@ const ResolverPage: React.FC = () => {
             if (key === 'forwarderServers') {
                 const [server1 = '', server2 = ''] = value.split(',');
                 setOriginalServers({ server1, server2 });
+                axios.post(`${getBackendURL()}/api/extra/refreshForwarders`, {}, {
+                    headers: {
+                        'Authorization': localStorage.getItem('token')
+                    }
+                })
             }
             return true;
         } catch (err) {

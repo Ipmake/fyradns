@@ -94,10 +94,50 @@ const resolveAny = <T extends $Enums.RecordType>(
     });
 }
 
-export async function startDNSServer(port: number | string) {
-    const resolver = new Resolver();
+const resolver = new Resolver();
 
+// Function to update forwarder DNS servers
+export async function updateForwarderServers(): Promise<boolean> {
     try {
+        const config = await prisma.config.findMany({
+            where: {
+                key: {
+                    in: ['useForwarder', 'forwarderServers']
+                }
+            }
+        });
+
+        const useForwarder = config.find(c => c.key === 'useForwarder')?.value === 'true';
+        const forwarderServers = config.find(c => c.key === 'forwarderServers')?.value.split(',');
+
+        if (useForwarder && forwarderServers && forwarderServers.length > 0) {
+            resolver.setServers(forwarderServers.slice(0, 2));
+            console.log('Updated forwarder DNS servers:', forwarderServers.slice(0, 2));
+            return true;
+        }
+        return false;
+    } catch (err) {
+        console.error('Failed to update forwarder DNS servers:', err);
+        return false;
+    }
+}
+
+
+export async function startDNSServer(port: number | string) {
+    try {
+        // Initialize forwarder DNS servers
+        await updateForwarderServers();
+        
+        // Set up timer to update forwarder DNS servers every 5 minutes
+        const updateInterval = 5 * 60 * 1000; // 5 minutes in milliseconds
+        setInterval(async () => {
+            try {
+                await updateForwarderServers();
+            } catch (err) {
+                console.error('Error in scheduled forwarder update:', err);
+            }
+        }, updateInterval);
+
         const server = dns2.createServer({
             udp: true,
             handle: async (request, send, _rinfo) => {
@@ -221,8 +261,8 @@ export async function startDNSServer(port: number | string) {
 
                     if (!response.answers.length) {
                         // if forwarder is enabled, forward the request
-                        if (!zoneExists &&(useForwarder && forwarderServers)) {
-                            resolver.setServers(forwarderServers.slice(0, 2));
+                        if (!zoneExists && useForwarder && forwarderServers) {
+                            // No need to set forwarder servers here - already set by updateForwarderServers()
 
                             const answer = await resolveAny(resolver, question.name, recordType as $Enums.RecordType);
                             if (answer) {
@@ -395,10 +435,6 @@ export async function startDNSServer(port: number | string) {
             }
         });
 
-        // server.on('request', (request, response, rinfo) => {
-        //     console.log(request.header.id, request.questions[0]);
-        // });
-
         server.on('listening', () => {
             console.log(`DNS server listening on port ${port}`);
         });
@@ -406,7 +442,6 @@ export async function startDNSServer(port: number | string) {
         server.on('close', () => {
             console.log('server closed');
         });
-
 
         server.listen({
             udp: {
