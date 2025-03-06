@@ -86,7 +86,7 @@ const ResolverPage: React.FC = () => {
                 headers: {
                     'Authorization': localStorage.getItem('token')
                 }
-            }).catch(err => {
+            }).catch(() => {
                 throw new Error(`Failed to update ${key}`);
             })
             

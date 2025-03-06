@@ -1,4 +1,4 @@
-import { AppBar, Avatar, Box, Button, Menu, MenuItem, Tooltip, Typography } from "@mui/material";
+import { AppBar, Avatar, Box, Menu, MenuItem, Tooltip, Typography } from "@mui/material";
 import { AccountCircle, Settings } from "@mui/icons-material";
 import useAuthStore from "../states/AuthState";
 import { useState } from "react";
