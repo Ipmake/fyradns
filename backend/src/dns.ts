@@ -1,7 +1,7 @@
 import dns2 from 'dns2';
 import { logger, prisma } from '.';
 import { MxRecord, resolveCaa, Resolver, SoaRecord, SrvRecord } from 'node:dns';
-import { $Enums } from '@prisma/client';
+import { $Enums, Prisma } from '@prisma/client';
 import { logLevelStrings } from './workers/logworker';
 
 interface ExtendedDnsQuestion extends dns2.DnsQuestion {
@@ -127,7 +127,7 @@ export async function startDNSServer(port: number | string) {
     try {
         // Initialize forwarder DNS servers
         await updateForwarderServers();
-        
+
         // Set up timer to update forwarder DNS servers every 5 minutes
         const updateInterval = 5 * 60 * 1000; // 5 minutes in milliseconds
         setInterval(async () => {
@@ -170,19 +170,29 @@ export async function startDNSServer(port: number | string) {
                     const recordType = typeMap[question.type] || 'A';
                     const nameParts = question.name.split('.');
 
-                    const subDomain = nameParts.slice(0, -2).join('.');
-                    const zone = nameParts.slice(-2).join('.');
+                    // Generate all possible parent zones from the domain
+                    const possibleZones = [];
+                    // Start from i=0 to include the full domain itself
+                    for (let i = 0; i < nameParts.length; i++) {
+                        const zoneParts = nameParts.slice(i);
+                        // Only add if we have at least one part
+                        if (zoneParts.length > 0) {
+                            possibleZones.push(zoneParts.join('.'));
+                        }
+                    }
 
-                    // Single query that fetches both records and zone information
-                    const [records, zoneInDb, config] = await prisma.$transaction([
+                    possibleZones.sort((a, b) => b.length - a.length);
+
+                    // Execute a single transaction with optimized queries
+                    const [recordsWithZones, config] = await prisma.$transaction([
+                        // Query for records across all possible zones
                         prisma.record.findMany({
                             where: {
-                                zoneDomain: zone,
+                                zoneDomain: {
+                                    in: possibleZones
+                                },
                                 type: recordType,
                                 enabled: true,
-                                name: {
-                                    in: [subDomain, '@', '*']
-                                },
                                 zone: {
                                     enabled: true
                                 }
@@ -190,15 +200,11 @@ export async function startDNSServer(port: number | string) {
                             include: {
                                 zone: true
                             },
-                            orderBy: {
-                                priority: 'asc'
-                            }
-                        }),
-                        prisma.zone.findFirst({
-                            where: {
-                                domain: zone,
-                                enabled: true
-                            }
+                            orderBy: [
+                                {
+                                    priority: 'asc'
+                                }
+                            ]
                         }),
                         prisma.config.findMany({
                             where: {
@@ -209,24 +215,59 @@ export async function startDNSServer(port: number | string) {
                         })
                     ]);
 
-                    // Check if zone exists by looking at any returned record
-                    const zoneExists = zoneInDb !== null;
+                    let matchingRecords: typeof recordsWithZones[0][] = [];
+                    let zoneExists = false;
+                    let zone: string = "";
+                    let subDomain: string = "";
 
-                    // Group records by specificity
-                    const exactMatches = records.filter(r => r.name === subDomain);
-                    const rootMatches = records.filter(r => r.name === '@');
-                    const wildcardMatches = records.filter(r => r.name === '*');
+                    if (recordsWithZones.length > 0) {
+                        // Group records by zoneDomain
+                        const recordsByZone = recordsWithZones.reduce((acc, record) => {
+                            if (!acc[record.zoneDomain]) acc[record.zoneDomain] = [];
+                            acc[record.zoneDomain].push(record);
+                            return acc;
+                        }, {} as Record<string, typeof recordsWithZones[0][]>);
 
-                    // Priority: exact match > root match > wildcard match
-                    // Determine matching records by priority
-                    let matchingRecords;
+                        // Find the longest matching zone that has records
+                        const matchingZoneDomain = possibleZones.find(zone => recordsByZone[zone]?.length > 0);
 
-                    if (exactMatches.length > 0) matchingRecords = exactMatches;
-                    else if (rootMatches.length > 0 && subDomain === "") matchingRecords = rootMatches;
-                    else matchingRecords = wildcardMatches;
+                        if (matchingZoneDomain) {
+                            const records = recordsByZone[matchingZoneDomain];
+
+                            const SubDomain = question.name.endsWith(matchingZoneDomain)
+                                ? question.name.slice(0, -(matchingZoneDomain.length + 1)) || '@'
+                                : question.name;
+
+
+                            // Group records by specificity
+                            const exactMatches = records.filter(r => r.name === SubDomain);
+                            const rootMatches = records.filter(r => r.name === '@');
+                            const wildcardMatches = records.filter(r => r.name === '*');
+
+                            // Priority: exact match > root match > wildcard match
+                            // Determine matching records by priority
+
+                            if (exactMatches.length > 0) {
+                                matchingRecords = exactMatches;
+                            } else if (rootMatches.length > 0 && SubDomain === '@') {
+                                matchingRecords = rootMatches;
+                            } else if (wildcardMatches.length > 0) {
+                                matchingRecords = wildcardMatches;
+                            } else if (rootMatches.length > 0) {
+                                matchingRecords = rootMatches;
+                            } else {
+                                // No matching records found
+                                matchingRecords = [];
+                            }
+
+                            zoneExists = true;
+                            zone = matchingZoneDomain;
+                            subDomain = SubDomain;
+                        }
+                    }
 
                     // Process only the matching records
-                    for (const record of matchingRecords) {
+                    for (const record of (zoneExists ? matchingRecords : [])) {
                         let recordName = question.name;
 
                         // Handle special record names
@@ -366,7 +407,7 @@ export async function startDNSServer(port: number | string) {
                                         });
                                         break;
                                 }
-                                
+
                                 if (response.answers.length > 0) {
                                     response.header.ancount = response.answers.length;
                                     response.header.rcode = 0; // No error
@@ -379,14 +420,14 @@ export async function startDNSServer(port: number | string) {
                             if (zoneExists) {
                                 // Domain exists but no record of this type - return NOERROR with empty answers
                                 response.header.rcode = 0; // NOERROR
-    
+
                                 // Add SOA record in authority section for negative caching
                                 response.authorities.push({
-                                    name: zoneInDb.domain,
+                                    name: zone,
                                     type: 6, // SOA
                                     class: 1,
-                                    ttl: zoneInDb.ttl || 3600,
-                                    data: `${zoneInDb.domain} local@local ${zoneInDb.serial} ${zoneInDb.refresh} ${zoneInDb.retry} ${zoneInDb.expire} ${zoneInDb.minimum}`
+                                    ttl: 1, // 1 second
+                                    data: `${zone} local@local 0 0 0 0 0`
                                 } as dns2.DnsResourceRecord);
                             } else {
                                 // Domain doesn't exist at all - return NXDOMAIN
@@ -399,13 +440,12 @@ export async function startDNSServer(port: number | string) {
 
                         // If authoritative, add proper SOA record
                         if (zoneExists) {
-                            const zone = records[0].zone;
                             response.authorities.push({
-                                name: zone.domain,
-                                type: 6,
+                                name: zone,
+                                type: 6, // SOA
                                 class: 1,
-                                ttl: zone.ttl || 3600,
-                                data: `${zone.domain} local@local ${zone.serial} ${zone.refresh} ${zone.retry} ${zone.expire} ${zone.minimum}`
+                                ttl: 1, // 1 second
+                                data: `${zone} local@local 0 0 0 0 0`
                             } as dns2.DnsResourceRecord);
                         }
                     }
