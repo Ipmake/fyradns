@@ -93,6 +93,10 @@ class DnsLogWorker {
     }
 
     public async writeLogEntry(entry: DnsLogEntry) {
+        if(this.currentLogFile !== path.join(this.logDir, `${new Date().toISOString().split('T')[0]}.log`)) {
+            this.currentLogFile = path.join(this.logDir, `${new Date().toISOString().split('T')[0]}.log`);
+            await this.createWriteStream();
+        }
         if (!this.writeStream) await this.createWriteStream();
         this.writeStream?.write(`${Date.now()}|${JSON.stringify(entry)}\n`);
     }
