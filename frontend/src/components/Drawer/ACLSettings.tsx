@@ -37,6 +37,9 @@ function ACLSettings({
     enabled: true,
     ...initialData,
   });
+  const [newIpValue, setNewIpValue] = useState<string>("");
+  const [newIpError, setNewIpError] = useState<string>("");
+  const [ipErrors, setIpErrors] = useState<Record<number, string>>({});
 
   // Update ACL data when zoneDomain changes
   useEffect(() => {
@@ -54,6 +57,18 @@ function ACLSettings({
       onChange(aclData);
     }
   }, [aclData, onChange]);
+
+  const validateIpAddress = (ip: string): boolean => {
+    // IPv4 regex pattern
+    const ipv4Pattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    // IPv6 regex pattern
+    const ipv6Pattern = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^([0-9a-fA-F]{1,4}:){0,6}:[0-9a-fA-F]{1,4}$|^([0-9a-fA-F]{1,4}:){1,7}:$/;
+    
+    // CIDR notation support
+    const ipWithCidrPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\/([0-9]|[1-2][0-9]|3[0-2]))$/;
+    
+    return ipv4Pattern.test(ip) || ipv6Pattern.test(ip) || ipWithCidrPattern.test(ip);
+  };
 
   const handleChange = (field: keyof ACLData, value: string | boolean) => {
     setAclData(prev => ({
@@ -92,20 +107,57 @@ function ACLSettings({
                 size="small"
                 value={ip}
                 fullWidth
+                error={!!ipErrors[index]}
+                helperText={ipErrors[index] || ""}
                 onChange={(e) => {
                   const newIps = aclData.ipAddresses.split(',')
-                .map(ip => ip.trim())
-                .filter(ip => ip !== '');
-                  newIps[index] = e.target.value;
+                    .map(ip => ip.trim())
+                    .filter(ip => ip !== '');
+                  
+                  const newIp = e.target.value.trim();
+                  newIps[index] = newIp;
+                  
+                  // Validate the IP
+                  if (newIp && !validateIpAddress(newIp)) {
+                    setIpErrors(prev => ({
+                      ...prev,
+                      [index]: "Please enter a valid IP address"
+                    }));
+                  } else {
+                    setIpErrors(prev => {
+                      const updated = {...prev};
+                      delete updated[index];
+                      return updated;
+                    });
+                  }
+                  
                   handleChange("ipAddresses", newIps.join(','));
                 }}
               />
               <IconButton 
                 onClick={() => {
                   const newIps = aclData.ipAddresses.split(',')
-                .map(ip => ip.trim())
-                .filter(ip => ip !== '')
-                .filter((_, i) => i !== index);
+                    .map(ip => ip.trim())
+                    .filter(ip => ip !== '')
+                    .filter((_, i) => i !== index);
+                  
+                  // Update errors state by removing the deleted IP's error
+                  setIpErrors(prev => {
+                    const updated = {...prev};
+                    delete updated[index];
+                    // Adjust remaining indices
+                    const newErrors: Record<number, string> = {};
+                    Object.entries(updated).forEach(([key, value]) => {
+                      const keyNum = parseInt(key);
+                      if (keyNum > index) {
+                        newErrors[keyNum - 1] = value;
+                      } else {
+                        newErrors[keyNum] = value;
+                      }
+                    });
+                    return newErrors;
+                  });
+                  
                   handleChange("ipAddresses", newIps.join(','));
                 }}
               >
@@ -119,18 +171,34 @@ function ACLSettings({
                 size="small"
                 placeholder="Add new IP address"
                 fullWidth
-                id="new-ip-address"
+                value={newIpValue}
+                onChange={(e) => setNewIpValue(e.target.value)}
+                error={!!newIpError}
+                helperText={newIpError || ""}
               />
               <Button
                 variant="contained"
                 color="primary"
-                sx={{ ml: 1 }}
+                sx={{ 
+                  ml: 1, 
+                  alignSelf: "flex-start", 
+                  minHeight: 40,
+                  height: 40 
+                }}
                 onClick={() => {
-                  const newIp = (document.getElementById('new-ip-address') as HTMLInputElement).value;
-                  if (newIp.trim()) {
-                    const currentIps = aclData.ipAddresses ? aclData.ipAddresses.split(',').map(ip => ip.trim()).filter(ip => ip !== '') : [];
-                    handleChange("ipAddresses", [...currentIps, newIp.trim()].join(','));
-                    (document.getElementById('new-ip-address') as HTMLInputElement).value = '';
+                  const newIp = newIpValue.trim();
+                  if (newIp) {
+                    if (!validateIpAddress(newIp)) {
+                      setNewIpError("Please enter a valid IP address");
+                      return;
+                    }
+                    
+                    setNewIpError("");
+                    const currentIps = aclData.ipAddresses 
+                      ? aclData.ipAddresses.split(',').map(ip => ip.trim()).filter(ip => ip !== '') 
+                      : [];
+                    handleChange("ipAddresses", [...currentIps, newIp].join(','));
+                    setNewIpValue("");
                   }
                 }}
               >
