@@ -46,9 +46,8 @@ model ACL {
   ipAddresses   String
   description String?
   enabled     Boolean @default(true)
-  zone Zone @relation(fields: [zoneDomain], references: [domain])
+  zone Zone @relation(fields: [zoneDomain], references: [domain], onDelete: Cascade)
 }
-
 
 enum RecordType {
   A

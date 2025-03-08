@@ -17,6 +17,7 @@ import { create } from "zustand";
 import ButtonWithLoad from "../ButtonWithLoad";
 import axios from "axios";
 import getBackendURL from "../../util/getBackend";
+import ACLSettings, { ACLData } from "./ACLSettings";
 
 interface ZoneDrawerState {
   target: string | null;
@@ -37,11 +38,24 @@ function ZoneDrawer() {
   const [saveLoading, setSaveLoading] = useState(false);
 
   const [data, setData] = useState<Types.Zone | null>(null);
+  const [aclData, setAclData] = useState<ACLData>({
+    ipAddresses: "",
+    description: "",
+    enabled: true,
+  });
+  const [existingAclId, setExistingAclId] = useState<number | null>(null);
 
   useEffect(() => {
     setData(null);
     setSaveLoading(false);
     setLoading(true);
+    setExistingAclId(null);
+    setAclData({
+      ipAddresses: "",
+      description: "",
+      enabled: true,
+    });
+    
     if (!target) return;
 
     if (target === "new") {
@@ -70,6 +84,30 @@ function ZoneDrawer() {
             ...res.data.data,
             serial: Math.floor(Math.random() * 1000000),
           });
+          
+          // Fetch ACL data for this zone if it exists
+          return axios.get(`${getBackendURL()}/api/acls`, {
+            headers: {
+              Authorization: localStorage.getItem("token"),
+            },
+          });
+        })
+        .then((aclRes) => {
+          if (aclRes && aclRes.data && aclRes.data.data) {
+            const zoneAcl = aclRes.data.data.find(
+              (acl : ACLData) => acl.zoneDomain === target
+            );
+            
+            if (zoneAcl) {
+              setAclData({
+                zoneDomain: zoneAcl.zoneDomain,
+                ipAddresses: zoneAcl.ipAddresses,
+                description: zoneAcl.description || "",
+                enabled: zoneAcl.enabled,
+              });
+              setExistingAclId(zoneAcl.id);
+            }
+          }
           setLoading(false);
         })
         .catch(() => {
@@ -142,6 +180,13 @@ function ZoneDrawer() {
             data && setData({ ...data, description: e.target.value })
           }
           fullWidth
+        />
+
+        {/* Add ACLSettings component here */}
+        <ACLSettings
+          zoneDomain={data?.domain}
+          initialData={aclData}
+          onChange={(newAclData) => setAclData(newAclData)}
         />
 
         <Accordion defaultExpanded={false}>
@@ -234,6 +279,32 @@ function ZoneDrawer() {
                   headers: {
                     Authorization: localStorage.getItem("token"),
                   },
+                })
+                .then(() => {
+                  // Handle ACL data
+                  if (data.domain) {
+                    const aclToSave = {
+                      ...aclData,
+                      zoneDomain: data.domain,
+                    };
+                    
+                    // If existing ACL - update it regardless of enabled state
+                    if (existingAclId) {
+                      return axios.put(`${getBackendURL()}/api/acls/${existingAclId}`, aclToSave, {
+                        headers: {
+                          Authorization: localStorage.getItem("token"),
+                        },
+                      });
+                    } 
+                    // Only create new ACL if it's enabled
+                    else if (aclData.enabled) {
+                      return axios.post(`${getBackendURL()}/api/acls`, aclToSave, {
+                        headers: {
+                          Authorization: localStorage.getItem("token"),
+                        },
+                      });
+                    }
+                  }
                 })
                 .then(() => {
                   setSaveLoading(false);

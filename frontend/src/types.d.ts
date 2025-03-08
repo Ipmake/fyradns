@@ -30,6 +30,14 @@ declare namespace Types {
         enabled: boolean
     }
 
+    interface ACL {
+        id: number
+        zoneDomain: string
+        ipAddresses: string
+        description?: string
+        enabled: boolean
+    }
+
     interface ZoneWithRecords extends Zone {
         records: Record[]
     }

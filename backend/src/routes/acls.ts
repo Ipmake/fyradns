@@ -58,8 +58,8 @@ const UpdateACLSchema = Joi.object({
 router.get('/', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
     if (!user) {
-       // res.status(401).json({ error: 'Unauthorized' });
-        //return;
+       res.status(401).json({ error: 'Unauthorized' });
+        return;
     }
     
     try {
@@ -78,8 +78,8 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
     if (!user) {
-       // res.status(401).json({ error: 'Unauthorized' });
-        //return;
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
     }
     
     const id = parseInt(req.params.id);
@@ -112,8 +112,8 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
     if (!user) {
-       // res.status(401).json({ error: 'Unauthorized' });
-        //return;
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
     }
     
     const { error, value } = ACLSchema.validate(req.body);
@@ -168,8 +168,8 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
     if (!user) {
-       // res.status(401).json({ error: 'Unauthorized' });
-        //return;
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
     }
     
     const id = parseInt(req.params.id);
@@ -245,8 +245,8 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
     if (!user) {
-       // res.status(401).json({ error: 'Unauthorized' });
-        //return;
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
     }
     
     const id = parseInt(req.params.id);
@@ -283,8 +283,8 @@ router.delete('/:id', async (req, res) => {
 router.post('/batch', async (req: Request, res: Response): Promise<void> => {
     const user = await AuthUser(req.headers.authorization);
     if (!user) {
-       // res.status(401).json({ error: 'Unauthorized' });
-        //return;
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
     }
     
     const { error, value } = BatchACLSchema.validate(req.body);
