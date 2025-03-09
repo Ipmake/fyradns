@@ -312,7 +312,6 @@ export async function startDNSServer(port: number | string) {
                         });
                         
                         if (!isAllowed) {
-                            console.log(`Access denied for ${clientIp} to zone ${zone}`);
                             // Return REFUSED (5) for unauthorized access
                             response.header.rcode = 5; // REFUSED
                             logger.writeLogEntry({
@@ -334,7 +333,6 @@ export async function startDNSServer(port: number | string) {
                             return send(response);
                         }
                         
-                        console.log(`Access granted for ${clientIp} to zone ${zone}`);
                     }
 
                     
