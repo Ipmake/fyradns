@@ -20,6 +20,7 @@ interface ACLSettingsProps {
 }
 
 export interface ACLData {
+  id?: number;
   zoneDomain?: string;
   ipAddresses: string;
   description?: string;
@@ -71,10 +72,16 @@ function ACLSettings({
   };
 
   const handleChange = (field: keyof ACLData, value: string | boolean) => {
-    setAclData(prev => ({
-      ...prev,
+    const updatedData = {
+      ...aclData,
       [field]: value
-    }));
+    };
+    setAclData(updatedData);
+    
+    // Explicitly trigger onChange to ensure parent component knows about the change
+    if (onChange) {
+      onChange(updatedData);
+    }
   };
 
   return (
@@ -102,68 +109,47 @@ function ACLSettings({
               .map(ip => ip.trim())
               .filter(ip => ip !== '')
               .map((ip, index) => (
-            <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <TextField 
-                size="small"
-                value={ip}
-                fullWidth
-                error={!!ipErrors[index]}
-                helperText={ipErrors[index] || ""}
-                onChange={(e) => {
-                  const newIps = aclData.ipAddresses.split(',')
-                    .map(ip => ip.trim())
-                    .filter(ip => ip !== '');
-                  
-                  const newIp = e.target.value.trim();
-                  newIps[index] = newIp;
-                  
-                  // Validate the IP
-                  if (newIp && !validateIpAddress(newIp)) {
-                    setIpErrors(prev => ({
-                      ...prev,
-                      [index]: "Please enter a valid IP address"
-                    }));
-                  } else {
-                    setIpErrors(prev => {
-                      const updated = {...prev};
-                      delete updated[index];
-                      return updated;
-                    });
-                  }
-                  
-                  handleChange("ipAddresses", newIps.join(','));
-                }}
-              />
-              <IconButton 
-                onClick={() => {
-                  const newIps = aclData.ipAddresses.split(',')
-                    .map(ip => ip.trim())
-                    .filter(ip => ip !== '')
-                    .filter((_, i) => i !== index);
-                  
-                  // Update errors state by removing the deleted IP's error
-                  setIpErrors(prev => {
-                    const updated = {...prev};
-                    delete updated[index];
-                    // Adjust remaining indices
-                    const newErrors: Record<number, string> = {};
-                    Object.entries(updated).forEach(([key, value]) => {
-                      const keyNum = parseInt(key);
-                      if (keyNum > index) {
-                        newErrors[keyNum - 1] = value;
-                      } else {
-                        newErrors[keyNum] = value;
-                      }
-                    });
-                    return newErrors;
-                  });
-                  
-                  handleChange("ipAddresses", newIps.join(','));
-                }}
-              >
-                <DeleteOutlined />
-              </IconButton>
-            </Box>
+                <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <TextField 
+                    size="small"
+                    value={ip}
+                    fullWidth
+                    error={!!ipErrors[index]}
+                    helperText={ipErrors[index] || ""}
+                    InputProps={{ readOnly: true }}
+                    sx={{ bgcolor: 'action.hover' }}
+                  />
+                  <IconButton 
+                    onClick={() => {
+                      const newIps = aclData.ipAddresses.split(',')
+                        .map(ip => ip.trim())
+                        .filter(ip => ip !== '')
+                        .filter((_, i) => i !== index);
+                      
+                      // Update errors state by removing the deleted IP's error
+                      setIpErrors(prev => {
+                        const updated = {...prev};
+                        delete updated[index];
+                        // Adjust remaining indices
+                        const newErrors: Record<number, string> = {};
+                        Object.entries(updated).forEach(([key, value]) => {
+                          const keyNum = parseInt(key);
+                          if (keyNum > index) {
+                            newErrors[keyNum - 1] = value;
+                          } else {
+                            newErrors[keyNum] = value;
+                          }
+                        });
+                        return newErrors;
+                      });
+                      
+                      // Always set the IP addresses, even if the list is now empty
+                      handleChange("ipAddresses", newIps.join(','));
+                    }}
+                  >
+                    <DeleteOutlined />
+                  </IconButton>
+                </Box>
               ))}
             
             <Box sx={{ display: 'flex', mt: 1 }}>
@@ -205,8 +191,11 @@ function ACLSettings({
                 <Add />
               </Button>
             </Box>
-            <Typography variant="caption" color="text.secondary">
-              List of allowed IP addresses or subnets
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+              List of allowed IP addresses or subnets.
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              Empty list denies access from all IPs.
             </Typography>
           </Box>
           

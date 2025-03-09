@@ -41,19 +41,17 @@ function ZoneDrawer() {
   const [aclData, setAclData] = useState<ACLData>({
     ipAddresses: "",
     description: "",
-    enabled: true,
+    enabled: false,
   });
-  const [existingAclId, setExistingAclId] = useState<number | null>(null);
 
   useEffect(() => {
     setData(null);
     setSaveLoading(false);
     setLoading(true);
-    setExistingAclId(null);
     setAclData({
       ipAddresses: "",
       description: "",
-      enabled: true,
+      enabled: false,
     });
     
     if (!target) return;
@@ -86,7 +84,7 @@ function ZoneDrawer() {
           });
           
           // Fetch ACL data for this zone if it exists
-          return axios.get(`${getBackendURL()}/api/acls`, {
+          return axios.get(`${getBackendURL()}/api/acls/zone/${target}`, {
             headers: {
               Authorization: localStorage.getItem("token"),
             },
@@ -94,10 +92,8 @@ function ZoneDrawer() {
         })
         .then((aclRes) => {
           if (aclRes && aclRes.data && aclRes.data.data) {
-            const zoneAcl = aclRes.data.data.find(
-              (acl : ACLData) => acl.zoneDomain === target
-            );
-            
+            const zoneAcl : ACLData = aclRes.data.data;
+            console.log(zoneAcl);
             if (zoneAcl) {
               setAclData({
                 zoneDomain: zoneAcl.zoneDomain,
@@ -105,7 +101,6 @@ function ZoneDrawer() {
                 description: zoneAcl.description || "",
                 enabled: zoneAcl.enabled,
               });
-              setExistingAclId(zoneAcl.id);
             }
           }
           setLoading(false);
@@ -281,29 +276,16 @@ function ZoneDrawer() {
                   },
                 })
                 .then(() => {
-                  // Handle ACL data
                   if (data.domain) {
                     const aclToSave = {
                       ...aclData,
                       zoneDomain: data.domain,
                     };
-                    
-                    // If existing ACL - update it regardless of enabled state
-                    if (existingAclId) {
-                      return axios.put(`${getBackendURL()}/api/acls/${existingAclId}`, aclToSave, {
-                        headers: {
-                          Authorization: localStorage.getItem("token"),
-                        },
-                      });
-                    } 
-                    // Only create new ACL if it's enabled
-                    else if (aclData.enabled) {
                       return axios.post(`${getBackendURL()}/api/acls`, aclToSave, {
                         headers: {
                           Authorization: localStorage.getItem("token"),
                         },
                       });
-                    }
                   }
                 })
                 .then(() => {

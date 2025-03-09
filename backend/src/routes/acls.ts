@@ -24,7 +24,7 @@ const IPAddressListValidator = Joi.string().custom((value, helpers) => {
 // Schema for validating individual ACL records
 const ACLSchema = Joi.object({
     zoneDomain: Joi.string().required().min(1).max(255),
-    ipAddresses: IPAddressListValidator.required(),
+    ipAddresses: IPAddressListValidator.required().allow(''),
     description: Joi.string().optional().allow('', null),
     enabled: Joi.boolean().optional().default(true)
 });
@@ -74,6 +74,39 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET specific ACL by zone domain
+router.get('/zone/:domain', async (req, res) => {
+    const user = await AuthUser(req.headers.authorization);
+    if (!user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    
+    const domain = req.params.domain;
+    if (!domain) {
+        res.status(400).json({ error: 'Invalid domain' });
+        return;
+    }
+    
+    try {
+        const acl = await prisma.aCL.findUnique({
+            where: { zoneDomain: domain },
+        });
+        
+        if (!acl) {
+            res.status(404).json({ error: `ACL for zone '${domain}' not found` });
+            return;
+        }
+        
+        res.json({
+            data: acl
+        });
+    } catch (error) {
+        console.error(`Error retrieving ACL for zone ${domain}:`, error);
+        res.status(500).json({ error: 'Failed to retrieve ACL' });
+    }
+});
+
 // GET specific ACL by ID
 router.get('/:id', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
@@ -108,7 +141,7 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST create new ACL
+// POST create or update ACL
 router.post('/', async (req, res) => {
     const user = await AuthUser(req.headers.authorization);
     if (!user) {
@@ -133,34 +166,38 @@ router.post('/', async (req, res) => {
             return;
         }
         
-        // Check if ACL for this zone already exists (due to unique constraint)
+        // Use upsert to either create a new record or update an existing one
+        const acl = await prisma.aCL.upsert({
+            where: { zoneDomain: value.zoneDomain },
+            update: {
+                zoneDomain: value.zoneDomain,
+                ipAddresses: value.ipAddresses,
+                description: value.description,
+                enabled: value.enabled !== undefined ? value.enabled : true
+            },
+            create: {
+                zoneDomain: value.zoneDomain,
+                ipAddresses: value.ipAddresses,
+                description: value.description,
+                enabled: value.enabled !== undefined ? value.enabled : true
+            }
+        });
+        
+        // Check if this was a create or update operation
         const existingAcl = await prisma.aCL.findUnique({
             where: { zoneDomain: value.zoneDomain }
         });
         
-        if (existingAcl) {
-            res.status(409).json({ 
-                error: `ACL already exists for zone ${value.zoneDomain}`,
-                existingId: existingAcl.id
-            });
-            return;
-        }
+        // Set appropriate status code based on whether it's a create or update
+        const isNewRecord = !existingAcl || existingAcl.id === acl.id;
         
-        const acl = await prisma.aCL.create({
-            data: {
-                zoneDomain: value.zoneDomain,
-                ipAddresses: value.ipAddresses,
-                description: value.description,
-                enabled: value.enabled
-            }
-        });
-        
-        res.status(201).json({ 
-            data: acl 
+        res.status(isNewRecord ? 201 : 200).json({ 
+            data: acl,
+            operation: isNewRecord ? 'created' : 'updated'
         });
     } catch (error) {
-        console.error('Error creating ACL:', error);
-        res.status(500).json({ error: 'Failed to create ACL' });
+        console.error('Error creating/updating ACL:', error);
+        res.status(500).json({ error: 'Failed to create/update ACL' });
     }
 });
 
