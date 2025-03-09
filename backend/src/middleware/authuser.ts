@@ -1,0 +1,1 @@
+// Kommt später maybe so ne middleware damit man keine abfrage mehr machen muss ob der user eingeloggt ist

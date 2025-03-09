@@ -198,7 +198,11 @@ export async function startDNSServer(port: number | string) {
                                 }
                             },
                             include: {
-                                zone: true
+                                zone: {
+                                    include: {
+                                        acl: true // Include ACL information in the initial query
+                                    }
+                                }
                             },
                             orderBy: [
                                 {
@@ -219,6 +223,7 @@ export async function startDNSServer(port: number | string) {
                     let zoneExists = false;
                     let zone: string = "";
                     let subDomain: string = "";
+                    let aclInfo: { ipAddresses: string; enabled: boolean } | null = null;
 
                     if (recordsWithZones.length > 0) {
                         // Group records by zoneDomain
@@ -233,6 +238,14 @@ export async function startDNSServer(port: number | string) {
 
                         if (matchingZoneDomain) {
                             const records = recordsByZone[matchingZoneDomain];
+                            
+                            // Store ACL info if available
+                            if (records.length > 0 && records[0].zone.acl) {
+                                aclInfo = {
+                                    ipAddresses: records[0].zone.acl.ipAddresses,
+                                    enabled: records[0].zone.acl.enabled
+                                };
+                            }
 
                             const SubDomain = question.name.endsWith(matchingZoneDomain)
                                 ? question.name.slice(0, -(matchingZoneDomain.length + 1)) || '@'
@@ -263,6 +276,64 @@ export async function startDNSServer(port: number | string) {
                             subDomain = SubDomain;
                         }
                     }
+
+                    // Check ACL for zone - only if zone exists and ACL is enabled
+                    if (zoneExists && aclInfo && aclInfo.enabled) {
+                        const clientIp = _rinfo.address;
+                        
+                        // Parse ACL rules - assuming ipAddresses is a comma-separated list or CIDR notation
+                        const allowedIps = aclInfo.ipAddresses.split(',').map(ip => ip.trim());
+                        
+                        // Check if client IP is allowed
+                        const isAllowed = allowedIps.some(allowedIp => {
+                            // Check for wildcard - allow all IPs
+                            if (allowedIp === '*') return true;
+                            
+                            // Handle CIDR notation (e.g., 192.168.178.0/24)
+                            //do not touch it just works.
+                            if (allowedIp.includes('/')) {
+                                const [subnet, prefixStr] = allowedIp.split('/');
+                                const prefix = parseInt(prefixStr, 10);
+                                
+                                // Convert both IPs to binary representation for comparison
+                                const ipBinary = clientIp.split('.').map((octet: string) => 
+                                    parseInt(octet, 10).toString(2).padStart(8, '0')).join('');
+                                const subnetBinary = subnet.split('.').map((octet: string) => 
+                                    parseInt(octet, 10).toString(2).padStart(8, '0')).join('');
+                                
+                                // Compare only the network portion (prefix length)
+                                return ipBinary.substring(0, prefix) === subnetBinary.substring(0, prefix);
+                            }
+                            
+                            // Simple exact match for single IP addresses
+                            return clientIp === allowedIp;
+                        });
+                        
+                        if (!isAllowed) {
+                            // Return REFUSED (5) for unauthorized access
+                            response.header.rcode = 5; // REFUSED
+                            logger.writeLogEntry({
+                                timestamp: new Date(),
+                                level: 5, // REFUSED
+                                query: {
+                                    name: question.name,
+                                    type: typeMap[question.type] || 'A',
+                                    class: question.class === 1 ? 'IN' : 'UNKNOWN'
+                                },
+                                response: {
+                                    code: 'REFUSED'
+                                },
+                                client: {
+                                    ip: _rinfo.address,
+                                    port: _rinfo.port
+                                }
+                            });
+                            return send(response);
+                        }
+                        
+                    }
+
+                    
 
                     // Process only the matching records
                     for (const record of (zoneExists ? matchingRecords : [])) {
