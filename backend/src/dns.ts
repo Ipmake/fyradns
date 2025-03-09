@@ -266,8 +266,6 @@ export async function startDNSServer(port: number | string) {
                                 matchingRecords = rootMatches;
                             } else if (wildcardMatches.length > 0) {
                                 matchingRecords = wildcardMatches;
-                            } else if (rootMatches.length > 0) {
-                                matchingRecords = rootMatches;
                             } else {
                                 // No matching records found
                                 matchingRecords = [];
