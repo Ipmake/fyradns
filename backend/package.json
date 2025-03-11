@@ -10,7 +10,8 @@
     "dns2": "^2.1.0",
     "express": "^4.21.2",
     "joi": "^17.13.3",
-    "memory-cache": "^0.2.0"
+    "memory-cache": "^0.2.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

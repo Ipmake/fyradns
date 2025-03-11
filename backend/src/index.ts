@@ -5,7 +5,8 @@ import init from './init';
 import { startDNSServer } from './dns';
 import fs from 'fs';
 import { DnsLogWorker } from './workers/logworker';
-
+import setupCheck from './utils/setupCheck';
+import { envSchema } from './types/env';
 const WEBPORT = process.env.WEBPORT || 40222;
 const DNSPORT = process.env.DNSPORT || 53;
 
@@ -22,12 +23,14 @@ export const logger = new DnsLogWorker(
     parseInt(process.env.LOGRETENTIONDAYS || '7')
 );
 
-startServer(WEBPORT).catch(() => {
-    process.exit(1);
-});
-
-startDNSServer(DNSPORT).catch(() => {
-    process.exit(1);
+setupCheck().then(() => {
+    startServer(WEBPORT).catch(() => {
+        process.exit(1);
+    });
+    
+    startDNSServer(DNSPORT).catch(() => {
+        process.exit(1);
+    });
 });
 
 export default app;

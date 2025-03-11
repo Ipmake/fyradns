@@ -2,6 +2,9 @@ import path from 'path';
 import fs from 'fs/promises';
 import app from './app';
 import express from 'express';
+import { dataDir } from './utils/setupCheck';
+import http from 'http';
+import https from 'https';
 
 export async function startServer(port: number | string) {
     const __dirname = process.cwd();
@@ -11,6 +14,16 @@ export async function startServer(port: number | string) {
     try {
         // Ensure routes directory exists
         await fs.mkdir(routesDir, { recursive: true }).catch(() => {});
+
+        let server: http.Server | https.Server;
+
+        if (process.env.USEHTTP === 'true') {
+            server = http.createServer(app);
+        } else {
+            const key = await fs.readFile(`${dataDir}/certs/key.pem`);
+            const cert = await fs.readFile(`${dataDir}/certs/cert.pem`);
+            server = https.createServer({ key, cert }, app);
+        }
         
         // Enable CORS for all requests
         app.use((req, res, next) => {
@@ -31,8 +44,9 @@ export async function startServer(port: number | string) {
             res.sendFile(path.join(wwwDir, 'index.html'));
         });
         
-        return app.listen(port, () => {
+        server.listen(port, () => {
             console.log(`Server running on http://localhost:${port}`);
+            return server;
         });
     } catch (err) {
         console.error('Failed to start server:', err);
