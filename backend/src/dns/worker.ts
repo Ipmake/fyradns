@@ -381,7 +381,7 @@ async function processDnsRequest(requestData: DnsPacket, rinfo: any): Promise<Dn
         response.header.qr = 1; // This is a response
         response.header.aa = 1; // Authoritative answer
         response.header.rd = 0; // Recursion desired
-        response.header.ra = 0; // Recursion available
+        response.header.ra = 1; // Recursion available
 
         const useForwarder = config.find(c => c.key === 'useForwarder')?.value === 'true';
         const forwarderServers = config.find(c => c.key === 'forwarderServers')?.value.split(',');
