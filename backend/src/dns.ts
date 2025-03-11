@@ -200,7 +200,7 @@ export async function startDNSServer(port: number | string) {
                             include: {
                                 zone: {
                                     include: {
-                                        acl: true // Include ACL information in the initial query
+                                        acl: true
                                     }
                                 }
                             },
@@ -223,6 +223,7 @@ export async function startDNSServer(port: number | string) {
                     let zoneExists = false;
                     let zone: string = "";
                     let subDomain: string = "";
+                    let zoneData: typeof recordsWithZones[0]["zone"] | null = null;
                     let aclInfo: { ipAddresses: string; enabled: boolean } | null = null;
 
                     if (recordsWithZones.length > 0) {
@@ -238,7 +239,7 @@ export async function startDNSServer(port: number | string) {
 
                         if (matchingZoneDomain) {
                             const records = recordsByZone[matchingZoneDomain];
-                            
+
                             // Store ACL info if available
                             if (records.length > 0 && records[0].zone.acl) {
                                 aclInfo = {
@@ -274,41 +275,53 @@ export async function startDNSServer(port: number | string) {
                             zoneExists = true;
                             zone = matchingZoneDomain;
                             subDomain = SubDomain;
+                            zoneData = recordsByZone[matchingZoneDomain][0].zone;
                         }
                     }
+
+
+                    // Add SOA record for the zone
+                    if (zoneExists) response.authorities.push({
+                        name: zone,
+                        type: 6, // SOA
+                        class: 1,
+                        ttl: zoneData?.ttl,
+                        data: `${zone} ${zoneData?.soaemail} ${zoneData?.serial} ${zoneData?.refresh} ${zoneData?.retry} ${zoneData?.expire} ${zoneData?.ttl}`
+                    } as dns2.DnsResourceRecord);
+
 
                     // Check ACL for zone - only if zone exists and ACL is enabled
                     if (zoneExists && aclInfo && aclInfo.enabled) {
                         const clientIp = _rinfo.address;
-                        
+
                         // Parse ACL rules - assuming ipAddresses is a comma-separated list or CIDR notation
                         const allowedIps = aclInfo.ipAddresses.split(',').map(ip => ip.trim());
-                        
+
                         // Check if client IP is allowed
                         const isAllowed = allowedIps.some(allowedIp => {
                             // Check for wildcard - allow all IPs
                             if (allowedIp === '*') return true;
-                            
+
                             // Handle CIDR notation (e.g., 192.168.178.0/24)
-                            //do not touch it just works.
+                            // Do not touch it just works.
                             if (allowedIp.includes('/')) {
                                 const [subnet, prefixStr] = allowedIp.split('/');
                                 const prefix = parseInt(prefixStr, 10);
-                                
+
                                 // Convert both IPs to binary representation for comparison
-                                const ipBinary = clientIp.split('.').map((octet: string) => 
+                                const ipBinary = clientIp.split('.').map((octet: string) =>
                                     parseInt(octet, 10).toString(2).padStart(8, '0')).join('');
-                                const subnetBinary = subnet.split('.').map((octet: string) => 
+                                const subnetBinary = subnet.split('.').map((octet: string) =>
                                     parseInt(octet, 10).toString(2).padStart(8, '0')).join('');
-                                
+
                                 // Compare only the network portion (prefix length)
                                 return ipBinary.substring(0, prefix) === subnetBinary.substring(0, prefix);
                             }
-                            
+
                             // Simple exact match for single IP addresses
                             return clientIp === allowedIp;
                         });
-                        
+
                         if (!isAllowed) {
                             // Return REFUSED (5) for unauthorized access
                             response.header.rcode = 5; // REFUSED
@@ -330,10 +343,10 @@ export async function startDNSServer(port: number | string) {
                             });
                             return send(response);
                         }
-                        
+
                     }
 
-                    
+
 
                     // Process only the matching records
                     for (const record of (zoneExists ? matchingRecords : [])) {
@@ -363,8 +376,8 @@ export async function startDNSServer(port: number | string) {
                     // Set response headers explicitly
                     response.header.qr = 1; // This is a response
                     response.header.aa = 1; // Authoritative answer
-                    response.header.rd = 1; // Recursion desired
-                    response.header.ra = 1; // Recursion available
+                    response.header.rd = 0; // Recursion desired
+                    response.header.ra = 0; // Recursion available
 
                     const useForwarder = config.find(c => c.key === 'useForwarder')?.value === 'true';
                     const forwarderServers = config.find(c => c.key === 'forwarderServers')?.value.split(',');
@@ -489,15 +502,6 @@ export async function startDNSServer(port: number | string) {
                             if (zoneExists) {
                                 // Domain exists but no record of this type - return NOERROR with empty answers
                                 response.header.rcode = 0; // NOERROR
-
-                                // Add SOA record in authority section for negative caching
-                                response.authorities.push({
-                                    name: zone,
-                                    type: 6, // SOA
-                                    class: 1,
-                                    ttl: 1, // 1 second
-                                    data: `${zone} local@local 0 0 0 0 0`
-                                } as dns2.DnsResourceRecord);
                             } else {
                                 // Domain doesn't exist at all - return NXDOMAIN
                                 response.header.rcode = 3; // NXDOMAIN
@@ -506,17 +510,6 @@ export async function startDNSServer(port: number | string) {
                     } else {
                         response.header.ancount = response.answers.length;
                         response.header.rcode = 0; // No error
-
-                        // If authoritative, add proper SOA record
-                        if (zoneExists) {
-                            response.authorities.push({
-                                name: zone,
-                                type: 6, // SOA
-                                class: 1,
-                                ttl: 1, // 1 second
-                                data: `${zone} local@local 0 0 0 0 0`
-                            } as dns2.DnsResourceRecord);
-                        }
                     }
                 } catch (err) {
                     console.error('Failed to process request:', err);
