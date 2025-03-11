@@ -174,6 +174,12 @@ async function processDnsRequest(requestData: DnsPacket, rinfo: any): Promise<Dn
 
     try {
 
+        // Set response headers explicitly
+        response.header.qr = 1; // This is a response
+        response.header.aa = 1; // Authoritative answer
+        response.header.rd = 0; // Recursion desired
+        response.header.ra = 1; // Recursion available
+
         const recordType = typeMap[question.type] || 'A';
         const nameParts = question.name.split('.');
 
@@ -191,31 +197,26 @@ async function processDnsRequest(requestData: DnsPacket, rinfo: any): Promise<Dn
         possibleZones.sort((a, b) => b.length - a.length);
 
         // Execute a single transaction with optimized queries
-        const [recordsWithZones, config] = await prisma.$transaction([
-            // Query for records across all possible zones
-            prisma.record.findMany({
+        const [zonesInDb, config] = await prisma.$transaction([
+            prisma.zone.findMany({
                 where: {
-                    zoneDomain: {
+                    domain: {
                         in: possibleZones
                     },
-                    type: recordType,
-                    enabled: true,
-                    zone: {
-                        enabled: true
-                    }
+                    enabled: true
                 },
                 include: {
-                    zone: {
-                        include: {
-                            acl: true
+                    acl: true,
+                    records: {
+                        where: {
+                            type: recordType,
+                            enabled: true
+                        },
+                        orderBy: {
+                            priority: 'asc'
                         }
                     }
-                },
-                orderBy: [
-                    {
-                        priority: 'asc'
-                    }
-                ]
+                }
             }),
             prisma.config.findMany({
                 where: {
@@ -226,74 +227,55 @@ async function processDnsRequest(requestData: DnsPacket, rinfo: any): Promise<Dn
             })
         ]);
 
-        let matchingRecords: typeof recordsWithZones[0][] = [];
-        let zoneExists = false;
-        let zone: string = "";
+        // Sort zoneInDb by length in descending order
+        zonesInDb.sort((a, b) => b.domain.length - a.domain.length);
+
+        // Find the longest matching zone
+        const zone = zonesInDb.find(z => question.name.endsWith(z.domain));
+
+        let matchingRecords: typeof zonesInDb[0]["records"] = [];
+        let zoneExists = zone ? true : false;
         let subDomain: string = "";
-        let zoneData: typeof recordsWithZones[0]["zone"] | null = null;
-        let aclInfo: { ipAddresses: string; enabled: boolean } | null = null;
+        let aclInfo: { ipAddresses: string; enabled: boolean } | null = zoneExists ? {
+            ipAddresses: zone?.acl?.ipAddresses || '',
+            enabled: zone?.acl?.enabled || false
+        } : null;
 
-        if (recordsWithZones.length > 0) {
-            // Group records by zoneDomain
-            const recordsByZone = recordsWithZones.reduce((acc, record) => {
-                if (!acc[record.zoneDomain]) acc[record.zoneDomain] = [];
-                acc[record.zoneDomain].push(record);
-                return acc;
-            }, {} as Record<string, typeof recordsWithZones[0][]>);
+        if(zoneExists && zone) {
+            const SubDomain = question.name.endsWith(zone.domain)
+                ? question.name.slice(0, -(zone.domain.length + 1)) || '@'
+                : question.name;
 
-            // Find the longest matching zone that has records
-            const matchingZoneDomain = possibleZones.find(zone => recordsByZone[zone]?.length > 0);
+            // Group records by specificity
+            const exactMatches = zone.records.filter(r => r.name === SubDomain);
+            const rootMatches = zone.records.filter(r => r.name === '@');
+            const wildcardMatches = zone.records.filter(r => r.name === '*');
 
-            if (matchingZoneDomain) {
-                const records = recordsByZone[matchingZoneDomain];
+            // Priority: exact match > root match > wildcard match
+            // Determine matching records by priority
 
-                // Store ACL info if available
-                if (records.length > 0 && records[0].zone.acl) {
-                    aclInfo = {
-                        ipAddresses: records[0].zone.acl.ipAddresses,
-                        enabled: records[0].zone.acl.enabled
-                    };
-                }
-
-                const SubDomain = question.name.endsWith(matchingZoneDomain)
-                    ? question.name.slice(0, -(matchingZoneDomain.length + 1)) || '@'
-                    : question.name;
-
-
-                // Group records by specificity
-                const exactMatches = records.filter(r => r.name === SubDomain);
-                const rootMatches = records.filter(r => r.name === '@');
-                const wildcardMatches = records.filter(r => r.name === '*');
-
-                // Priority: exact match > root match > wildcard match
-                // Determine matching records by priority
-
-                if (exactMatches.length > 0) {
-                    matchingRecords = exactMatches;
-                } else if (rootMatches.length > 0 && SubDomain === '@') {
-                    matchingRecords = rootMatches;
-                } else if (wildcardMatches.length > 0) {
-                    matchingRecords = wildcardMatches;
-                } else {
-                    // No matching records found
-                    matchingRecords = [];
-                }
-
-                zoneExists = true;
-                zone = matchingZoneDomain;
-                subDomain = SubDomain;
-                zoneData = recordsByZone[matchingZoneDomain][0].zone;
+            if (exactMatches.length > 0) {
+                matchingRecords = exactMatches;
+            } else if (rootMatches.length > 0 && SubDomain === '@') {
+                matchingRecords = rootMatches;
+            } else if (wildcardMatches.length > 0) {
+                matchingRecords = wildcardMatches;
+            } else {
+                // No matching records found
+                matchingRecords = [];
             }
+
+            subDomain = SubDomain;
         }
 
 
         // Add SOA record for the zone
         if (zoneExists) response.authorities.push({
-            name: zone,
+            name: zone?.domain,
             type: 6, // SOA
             class: 1,
-            ttl: zoneData?.ttl,
-            data: `${zone} ${zoneData?.soaemail} ${zoneData?.serial} ${zoneData?.refresh} ${zoneData?.retry} ${zoneData?.expire} ${zoneData?.ttl}`
+            ttl: zone?.ttl,
+            data: `${zone} ${zone?.soaemail} ${zone?.serial} ${zone?.refresh} ${zone?.retry} ${zone?.expire} ${zone?.ttl}`
         } as dns2.DnsResourceRecord);
 
 
@@ -358,7 +340,7 @@ async function processDnsRequest(requestData: DnsPacket, rinfo: any): Promise<Dn
 
             // Handle special record names
             if (record.name === '@') {
-                recordName = zone;
+                recordName = zone?.domain || '';
             } else if (record.name !== subDomain && record.name !== '*') {
                 recordName = `${record.name}.${zone}`;
             }
@@ -376,12 +358,6 @@ async function processDnsRequest(requestData: DnsPacket, rinfo: any): Promise<Dn
             response.answers.push(resourceRecord);
             break;
         }
-
-        // Set response headers explicitly
-        response.header.qr = 1; // This is a response
-        response.header.aa = 1; // Authoritative answer
-        response.header.rd = 0; // Recursion desired
-        response.header.ra = 1; // Recursion available
 
         const useForwarder = config.find(c => c.key === 'useForwarder')?.value === 'true';
         const forwarderServers = config.find(c => c.key === 'forwarderServers')?.value.split(',');
