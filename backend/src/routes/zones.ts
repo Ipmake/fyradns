@@ -70,11 +70,11 @@ const ZoneCreateSchema = Joi.object({
     ttl: Joi.number().optional(),
     description: Joi.string().optional().allow(''),
     enabled: Joi.boolean().optional(),
+    soaemail: Joi.string().optional(),
     refresh: Joi.number().optional(),
     retry: Joi.number().optional(),
     expire: Joi.number().optional(),
-    minimum: Joi.number().optional(),
-    serial: Joi.number().optional()
+    minimum: Joi.number().optional()
 });
 
 router.post('/', async (req, res) => {
@@ -90,7 +90,7 @@ router.post('/', async (req, res) => {
         return;
     }
 
-    const { domain, ttl, description, enabled, refresh, retry, expire, minimum, serial } = value;
+    const { domain, ttl, description, enabled, soaemail, refresh, retry, expire, minimum, serial } = value;
 
     // Validate required fields
     if (!domain) {
@@ -109,11 +109,11 @@ router.post('/', async (req, res) => {
         domain,
         ttl,
         description,
+        soaemail,
         refresh,
         retry,
         expire,
         minimum,
-        serial,
         enabled: enabled !== undefined ? enabled : true
     };
 
@@ -121,7 +121,12 @@ router.post('/', async (req, res) => {
         where: {
             domain,
         },
-        update: zoneData,
+        update: {
+            ...zoneData,
+            serial: {
+                increment: 1
+            }
+        },
         create: zoneData
     });
 
@@ -162,11 +167,11 @@ const BatchZonesSchema = Joi.object({
             ttl: Joi.number().optional(),
             description: Joi.string().optional(),
             enabled: Joi.boolean().optional(),
+            soaemail: Joi.string().optional(),
             refresh: Joi.number().optional(),
             retry: Joi.number().optional(),
             expire: Joi.number().optional(),
-            minimum: Joi.number().optional(),
-            serial: Joi.number().optional()
+            minimum: Joi.number().optional()
         })
     ).optional().default([]),
     
@@ -195,7 +200,12 @@ router.post('/batch', async (req, res) => {
 
     const updateZones: Prisma.ZoneUpsertArgs[] = (update || []).map((zone: any) => ({
         create: zone,
-        update: zone,
+        update: {
+            ...zone,
+            serial: {
+                increment: 1
+            }
+        },
         where: {
             domain: zone.domain
         }

@@ -65,7 +65,7 @@ function ZoneDrawer() {
         retry: 7200,
         expire: 3600000,
         minimum: 172800,
-        serial: Math.floor(Math.random() * 1000000),
+        serial: 1,
         enabled: true,
       });
       setLoading(false);
@@ -80,7 +80,7 @@ function ZoneDrawer() {
         .then((res) => {
           setData({
             ...res.data.data,
-            serial: Math.floor(Math.random() * 1000000),
+            serial: undefined,
           });
           
           // Fetch ACL data for this zone if it exists
@@ -194,6 +194,15 @@ function ZoneDrawer() {
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
+            <TextField
+                label="TTL"
+                type="text"
+                value={data?.soaemail || "hostmaster@localhost"}
+                onChange={(e) =>
+                  data && setData({ ...data, soaemail: e.target.value })
+                }
+                fullWidth
+              />
               <TextField
                 label="TTL"
                 type="number"
@@ -242,10 +251,8 @@ function ZoneDrawer() {
               <TextField
                 label="Serial"
                 type="number"
-                value={data?.serial || 0}
-                onChange={(e) =>
-                  data && setData({ ...data, serial: Number(e.target.value) })
-                }
+                disabled
+                value={data?.serial || 1}
                 fullWidth
               />
             </Stack>

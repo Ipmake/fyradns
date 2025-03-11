@@ -21,6 +21,7 @@ declare namespace Types {
     interface Zone {
         domain: string
         description?: string
+        soaemail?: string
         ttl?: number
         refresh?: number
         retry?: number   
